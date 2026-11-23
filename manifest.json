@@ -1,0 +1,16 @@
+{
+  "name": "随手便签账本 · 双轨版",
+  "short_name": "便签账本",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F7F6F2",
+  "theme_color": "#F7F6F2",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%23F59E0B'/%3E%3Crect x='96' y='88' width='320' height='336' rx='44' fill='%23FFFDF9'/%3E%3Ctext x='256' y='310' font-size='168' font-weight='bold' text-anchor='middle' fill='%23292524' font-family='sans-serif'%3E%E8%AE%B0%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

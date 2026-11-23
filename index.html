@@ -1,0 +1,1538 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>随手便签账本 · 双轨版</title>
+
+  <!-- PWA & iOS Safari 独立全屏应用 Meta 配置 -->
+  <meta name="theme-color" content="#F7F6F2" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="随手便签账本" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="format-detection" content="telephone=no" />
+  <link id="appleTouchIcon" rel="apple-touch-icon" href="" />
+  <link id="pwaManifestLink" rel="manifest" href="" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #F7F6F2; /* 手机原生便签纸张暖白底色 */
+      color: #2C2C2E;
+      -webkit-tap-highlight-color: transparent;
+      /* 适配全面屏刘海与底部安全区 */
+      padding-top: env(safe-area-inset-top);
+    }
+    /* 便签纸张微纹理与卡片阴影 */
+    .note-paper {
+      background-color: #FFFFFF;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03), 0 0 1px rgba(0, 0, 0, 0.06);
+    }
+    /* 隐藏滚动条但保留滚动 */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* 数字等宽对齐 */
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+    /* 底部安全区适配 */
+    .pb-safe-input {
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-36 select-none sm:select-auto">
+
+  <!-- 顶部导航 & 模式切换栏 -->
+  <header class="sticky top-0 z-30 bg-[#F7F6F2]/95 backdrop-blur-md border-b border-stone-200/70">
+    <div class="max-w-lg mx-auto px-4 pt-3 pb-2.5">
+      <div class="flex items-center justify-between mb-2.5">
+        <div class="flex items-center gap-2">
+          <div id="appLogo" class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-sm transition-colors">
+            记
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <h1 id="appTitle" class="text-base font-bold tracking-tight text-stone-800 leading-none">日常记账便签</h1>
+              <!-- 离线状态微章 -->
+              <span id="offlineStatusBadge" class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100/80 text-emerald-700 font-medium">
+                <span id="offlineStatusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span id="offlineStatusText">本地就绪</span>
+              </span>
+            </div>
+            <p id="appSubtitle" class="text-[11px] text-stone-400 mt-0.5">双轨同步 · 括号内为个人账本</p>
+          </div>
+        </div>
+
+        <!-- 右侧功能按钮区 -->
+        <div class="flex items-center gap-1.5">
+          <!-- 安装 App / 添加到主屏幕快捷按钮（家长纯享模式下自动隐藏） -->
+          <button id="installAppBtn" onclick="openInstallModal()" title="安装到手机桌面" class="p-2 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 hover:bg-amber-100 active:scale-95 transition flex items-center gap-1 text-xs font-semibold shadow-2xs">
+            <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+            <span id="installBtnLabel" class="hidden xs:inline">装到桌面</span>
+          </button>
+
+          <button onclick="openCopyModal()" title="复制便签文本" class="p-2 rounded-xl bg-white border border-stone-200/80 text-stone-600 hover:bg-stone-50 active:scale-95 transition flex items-center gap-1 text-xs font-medium shadow-2xs">
+            <svg class="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+            <span class="hidden sm:inline">复制</span>
+          </button>
+
+          <button onclick="openSettingsModal()" title="初始余额与PWA部署设置" class="p-2 rounded-xl bg-white border border-stone-200/80 text-stone-600 hover:bg-stone-50 active:scale-95 transition shadow-2xs">
+            <svg class="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 三种视图切换胶囊 (Segmented Control) -->
+      <div class="grid grid-cols-3 p-1 bg-stone-200/75 rounded-xl text-xs font-medium">
+        <button id="tab-dual" onclick="switchMode('dual')" class="py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1 bg-white text-stone-900 shadow-xs">
+          <span>双轨便签</span>
+          <span class="text-[10px] px-1 rounded bg-amber-100 text-amber-700">全览</span>
+        </button>
+        <button id="tab-parent" onclick="switchMode('parent')" class="py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1 text-stone-600 hover:text-stone-900">
+          <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          <span>家长纯享</span>
+        </button>
+        <button id="tab-manage" onclick="switchMode('manage')" class="py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1 text-stone-600 hover:text-stone-900">
+          <span>明细编辑</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容容器 -->
+  <main class="max-w-lg mx-auto px-4 pt-3 space-y-3.5">
+
+    <!-- 顶部双轨余额看板 -->
+    <section class="note-paper rounded-2xl p-4 border border-stone-100 relative overflow-hidden">
+      <div class="flex items-stretch justify-between gap-3">
+        <!-- 左侧：家长账面余额（永远显示） -->
+        <div class="flex-1">
+          <div class="flex items-center gap-1.5 text-xs text-stone-500 mb-1">
+            <span id="parentBalanceLabel">当前剩余余额</span>
+            <button onclick="openSettingsModal()" class="text-[11px] text-stone-400 underline decoration-dotted hover:text-stone-600">
+              初始 <span id="displayInitialBalance">1800</span>
+            </button>
+          </div>
+          <div class="flex items-baseline gap-1">
+            <span class="text-sm font-medium text-stone-400">¥</span>
+            <span id="parentCurrentBalance" class="text-3xl font-bold tracking-tight text-stone-900 tabular-nums">1593.79</span>
+          </div>
+          <div class="mt-1.5 text-[11px] text-stone-400 flex items-center gap-2">
+            <span>累计支出 <strong id="parentTotalSpent" class="font-medium text-stone-600 tabular-nums">206.21</strong></span>
+          </div>
+        </div>
+
+        <!-- 右侧：个人实际余额（仅在双轨/编辑模式下显示，家长模式下无缝隐藏） -->
+        <div id="privateBalanceCard" class="flex-1 bg-amber-50/80 border border-amber-200/60 rounded-xl p-3 flex flex-col justify-between transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-medium text-amber-800">（我的真实剩余）</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-200/70 text-amber-900 font-medium">仅自己可见</span>
+          </div>
+          <div class="my-0.5 flex items-baseline gap-0.5 text-amber-900">
+            <span class="text-sm font-semibold">（</span>
+            <span id="privateCurrentBalance" class="text-2xl font-bold tracking-tight tabular-nums">1470.87</span>
+            <span class="text-sm font-semibold">）</span>
+          </div>
+          <div class="text-[11px] text-amber-700/80 flex items-center justify-between">
+            <span>私密差额</span>
+            <span id="privateDiffAmount" class="font-semibold tabular-nums">-122.92</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 家长模式提示条（极简，不暴露任何双轨信息） -->
+      <div id="parentModeBanner" class="hidden mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400">
+        <span>已按日期自动汇总收支明细</span>
+        <span class="text-emerald-600 font-medium">● 账目清晰核对无误</span>
+      </div>
+    </section>
+
+    <!-- 示例数据提示横幅（当存在预置示例数据时显示，可一键清空） -->
+    <div id="sampleDataBanner" class="bg-stone-800 text-stone-100 rounded-xl px-3.5 py-2.5 text-xs flex items-center justify-between shadow-sm">
+      <div class="flex items-center gap-2">
+        <span class="text-amber-400">✦</span>
+        <span>已载入截图历史账单 (11.20~11.22) 供预览</span>
+      </div>
+      <button onclick="confirmClearAll(true)" class="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white font-medium transition shrink-0 ml-2">
+        清空并开始记账
+      </button>
+    </div>
+
+    <!-- 主账本内容展示区（根据当前视图模式渲染） -->
+    <section id="ledgerContainer" class="space-y-3">
+      <!-- 动态渲染每日便签卡片或明细列表 -->
+    </section>
+
+  </main>
+
+  <!-- 底部极速记账悬浮栏（模仿手机便签随时输入一条） -->
+  <div id="quickInputBar" class="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-stone-200/80 shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
+    <div class="max-w-lg mx-auto px-3.5 pt-2.5 pb-safe-input sm:pb-3">
+      <!-- 第一行：日期选择 & 账目属性快速切换 -->
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <div class="flex items-center gap-1.5">
+          <label class="flex items-center gap-1 bg-stone-100 hover:bg-stone-200/70 px-2.5 py-1 rounded-lg text-xs font-medium text-stone-700 cursor-pointer transition">
+            <svg class="w-3.5 h-3.5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <input type="text" id="inputDate" value="11.23" maxlength="10" class="w-12 bg-transparent focus:outline-none text-center font-semibold text-stone-800" placeholder="11.23" />
+          </label>
+        </div>
+
+        <!-- 四种类型快速胶囊按钮 -->
+        <div id="typeSelectorGroup" class="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          <button type="button" onclick="setEntryType('public_expense')" id="btn-public_expense" class="px-2.5 py-1 rounded-lg text-xs font-medium transition border bg-stone-800 text-white border-stone-800">
+            公开支出
+          </button>
+          <button type="button" onclick="setEntryType('private_expense')" id="btn-private_expense" class="px-2.5 py-1 rounded-lg text-xs font-medium transition border bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100">
+            （私密支出）
+          </button>
+          <button type="button" onclick="setEntryType('public_income')" id="btn-public_income" class="px-2.5 py-1 rounded-lg text-xs font-medium transition border bg-stone-100 text-stone-600 border-transparent hover:bg-stone-200">
+            +公开入账
+          </button>
+          <button type="button" onclick="setEntryType('private_income')" id="btn-private_income" class="px-2.5 py-1 rounded-lg text-xs font-medium transition border bg-stone-100 text-stone-600 border-transparent hover:bg-stone-200">
+            （+私密入账）
+          </button>
+        </div>
+      </div>
+
+      <!-- 第二行：便签自然语言输入框 -->
+      <form onsubmit="handleQuickAdd(event)" class="flex items-center gap-2">
+        <div class="relative flex-1">
+          <input
+            type="text"
+            id="quickInputText"
+            autocomplete="off"
+            placeholder="输入如：早点7 或 (买烟23) 自动识别括号..."
+            oninput="detectBracketsLive(this.value)"
+            class="w-full bg-stone-100/90 focus:bg-white text-stone-900 placeholder-stone-400 text-sm rounded-xl pl-3.5 pr-16 py-2.5 border border-stone-200/80 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition"
+          />
+          <span id="liveParseHint" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-stone-200/80 text-stone-600 pointer-events-none">
+            公开
+          </span>
+        </div>
+        <button type="submit" class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-semibold text-sm shadow-sm transition shrink-0">
+          记一笔
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 弹窗 1：一键复制便签文本（支持双轨版 / 仅家长版） -->
+  <div id="copyModal" class="fixed inset-0 z-50 hidden bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 shadow-xl space-y-4 animate-fade-in">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-stone-900">导出为手机便签文本</h3>
+        <button onclick="closeModal('copyModal')" class="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100">✕</button>
+      </div>
+
+      <!-- 选择复制版本 -->
+      <div class="grid grid-cols-2 gap-2 p-1 bg-stone-100 rounded-xl text-xs font-medium">
+        <button id="copyVerParent" onclick="updateCopyPreview('parent')" class="py-2 rounded-lg bg-white text-stone-900 shadow-2xs transition">
+          仅家长版（无括号）
+        </button>
+        <button id="copyVerDual" onclick="updateCopyPreview('dual')" class="py-2 rounded-lg text-stone-600 hover:text-stone-900 transition">
+          双轨完整版（含括号）
+        </button>
+      </div>
+
+      <textarea id="copyPreviewArea" rows="10" readonly class="w-full bg-[#F7F6F2] border border-stone-200 rounded-xl p-3.5 text-xs leading-relaxed text-stone-800 font-mono focus:outline-none"></textarea>
+
+      <div class="flex gap-2.5">
+        <button onclick="executeCopyText()" class="flex-1 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold transition active:scale-98">
+          一键复制到剪贴板
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 2：设置初始余额 & 数据备份/清空 -->
+  <div id="settingsModal" class="fixed inset-0 z-50 hidden bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 shadow-xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-stone-900">账本设置与数据管理</h3>
+        <button onclick="closeModal('settingsModal')" class="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100">✕</button>
+      </div>
+
+      <!-- 初始资金设置 -->
+      <div class="bg-stone-50 p-3.5 rounded-xl border border-stone-200/70 space-y-2.5">
+        <label class="block text-xs font-semibold text-stone-700">初始生活费 / 起始本金（元）</label>
+        <div class="flex items-center gap-2">
+          <input type="number" step="0.01" id="initialBalanceInput" class="flex-1 bg-white border border-stone-300 rounded-xl px-3 py-2 text-sm font-bold text-stone-900 focus:outline-none focus:border-amber-500" />
+          <button onclick="saveInitialBalance()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition">
+            保存金额
+          </button>
+        </div>
+        <p class="text-[11px] text-stone-500 leading-relaxed">
+          说明：公开收支会同时影响家长余额和你的真实余额；带括号的私密收支仅影响你自己的真实余额。
+        </p>
+      </div>
+
+      <!-- 备份与还原 -->
+      <div class="space-y-2">
+        <p class="text-xs font-semibold text-stone-700">数据备份与操作</p>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button onclick="exportJSON()" class="py-2.5 px-3 rounded-xl border border-stone-200 hover:bg-stone-50 font-medium text-stone-700 flex items-center justify-center gap-1.5">
+            <span>↓ 导出 JSON 备份</span>
+          </button>
+          <label class="py-2.5 px-3 rounded-xl border border-stone-200 hover:bg-stone-50 font-medium text-stone-700 flex items-center justify-center gap-1.5 cursor-pointer">
+            <span>↑ 导入 JSON 恢复</span>
+            <input type="file" accept=".json" onchange="importJSON(event)" class="hidden" />
+          </label>
+        </div>
+      </div>
+
+      <!-- PWA 独立部署与离线包说明入口 -->
+      <div class="bg-amber-50/70 border border-amber-200/70 rounded-xl p-3 flex items-center justify-between gap-2">
+        <div>
+          <p class="text-xs font-semibold text-amber-900">PWA 独立部署包（永久离线）</p>
+          <p class="text-[11px] text-amber-700/80 mt-0.5">获取托管所需的 manifest.json 与 sw.js 代码</p>
+        </div>
+        <button onclick="closeModal('settingsModal'); openDeployModal();" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shrink-0 transition">
+          查看代码
+        </button>
+      </div>
+
+      <!-- 重置与清空 -->
+      <div class="pt-2 border-t border-stone-100 flex items-center justify-between gap-2 text-xs">
+        <button onclick="restoreSampleData()" class="py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium">
+          恢复截图示例数据
+        </button>
+        <button onclick="confirmClearAll(false)" class="py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-medium">
+          清空全部账单
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 3：编辑单条记录 -->
+  <div id="editEntryModal" class="fixed inset-0 z-50 hidden bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 shadow-xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-stone-900">修改账目明细</h3>
+        <button onclick="closeModal('editEntryModal')" class="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100">✕</button>
+      </div>
+      <input type="hidden" id="editEntryId" />
+      <div class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-stone-500 mb-1">日期 (如 11.22)</label>
+            <input type="text" id="editEntryDate" class="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm font-medium" />
+          </div>
+          <div>
+            <label class="block text-stone-500 mb-1">金额 (元)</label>
+            <input type="number" step="0.01" id="editEntryAmount" class="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm font-bold" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-stone-500 mb-1">消费内容 / 备注</label>
+          <input type="text" id="editEntryTitle" class="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-stone-500 mb-1">账本归属类型</label>
+          <select id="editEntryType" class="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm bg-white">
+            <option value="public_expense">公开支出（家长可见 · 双方扣款）</option>
+            <option value="private_expense">私密支出（带括号 · 仅扣自己余额）</option>
+            <option value="public_income">公开入账（家长可见 · 双方增加）</option>
+            <option value="private_income">私密入账（带括号 · 仅增自己余额）</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex items-center justify-between gap-2 pt-2">
+        <button onclick="deleteCurrentEditingEntry()" class="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-semibold hover:bg-rose-100">
+          删除此条
+        </button>
+        <button onclick="saveEditedEntry()" class="flex-1 py-2.5 rounded-xl bg-stone-900 text-white text-sm font-semibold hover:bg-stone-800">
+          保存修改
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 4：PWA 安装到手机主屏幕引导 -->
+  <div id="installModal" class="fixed inset-0 z-50 hidden bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 shadow-xl space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <img id="installPreviewIcon" src="" alt="App Icon" class="w-10 h-10 rounded-xl shadow-sm border border-stone-100" />
+          <div>
+            <h3 class="text-base font-bold text-stone-900">添加到手机主屏幕</h3>
+            <p class="text-[11px] text-stone-500">像原生独立 App 一样全屏秒开 · 支持离线记账</p>
+          </div>
+        </div>
+        <button onclick="closeModal('installModal')" class="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100">✕</button>
+      </div>
+
+      <!-- 当前离线与运行环境状态卡片 -->
+      <div class="bg-stone-50 border border-stone-200/70 rounded-xl p-3 text-xs space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-stone-500">当前运行模式：</span>
+          <span id="pwaDisplayModeText" class="font-semibold text-stone-800">浏览器网页模式</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-stone-500">离线缓存引擎：</span>
+          <span id="pwaSwStatusText" class="font-semibold text-emerald-600">检测中...</span>
+        </div>
+      </div>
+
+      <!-- 如果浏览器支持一键原生安装（Chrome / Edge），显示直接安装按钮 -->
+      <div id="nativeInstallSection" class="hidden">
+        <button onclick="triggerNativeInstall()" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold shadow-sm transition active:scale-98 flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span>立即一键安装到桌面</span>
+        </button>
+      </div>
+
+      <!-- 图文步骤引导（适配 iOS Safari & Android 通用浏览器） -->
+      <div class="space-y-2.5 text-xs text-stone-700">
+        <div class="p-3 rounded-xl bg-stone-50 border border-stone-100 space-y-1">
+          <p class="font-bold text-stone-900 flex items-center gap-1.5">
+            <span class="px-1.5 py-0.5 rounded bg-stone-200 text-[10px]">iPhone / iPad</span>
+            <span>Safari 添加步骤：</span>
+          </p>
+          <p class="text-stone-600 leading-relaxed">
+            1. 点击屏幕底部中间的 <strong class="text-stone-900">「分享」按钮 (□↑)</strong><br/>
+            2. 向上滑动菜单，选择 <strong class="text-stone-900">「添加到主屏幕」</strong><br/>
+            3. 点击右上角 <strong class="text-amber-700">「添加」</strong> 即可在桌面生成独立图标
+          </p>
+        </div>
+
+        <div class="p-3 rounded-xl bg-stone-50 border border-stone-100 space-y-1">
+          <p class="font-bold text-stone-900 flex items-center gap-1.5">
+            <span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px]">Android 安卓</span>
+            <span>Chrome / Edge / 夸克添加步骤：</span>
+          </p>
+          <p class="text-stone-600 leading-relaxed">
+            1. 点击浏览器右上角或底部的 <strong class="text-stone-900">「菜单 (⋮ 或 ≡)」</strong><br/>
+            2. 选择 <strong class="text-stone-900">「添加到主屏幕」</strong> 或 <strong class="text-stone-900">「安装应用」</strong>
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-1 text-[11px] text-stone-400">
+        <span>提示：需在 HTTPS 网址下打开才可永久离线</span>
+        <button onclick="closeModal('installModal'); openDeployModal();" class="text-amber-700 font-semibold underline">
+          获取部署文件 →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 5：静态托管部署包代码导出（manifest.json & sw.js） -->
+  <div id="deployModal" class="fixed inset-0 z-50 hidden bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 shadow-xl space-y-3.5 max-h-[88vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold text-stone-900">PWA 静态托管部署文件</h3>
+          <p class="text-[11px] text-stone-500">上传至 GitHub Pages / Netlify / Vercel 即可获得永久离线 App</p>
+        </div>
+        <button onclick="closeModal('deployModal')" class="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100">✕</button>
+      </div>
+
+      <div class="bg-amber-50/80 border border-amber-200/70 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed">
+        <strong>部署说明：</strong>将本页面保存为 <code class="bg-white px-1 py-0.5 rounded border border-amber-200">index.html</code>，并在同一目录下新建以下两个文件，一起上传到免费静态托管平台，手机访问该网址即可实现 100% 断网秒开。
+      </div>
+
+      <!-- 文件 1：manifest.json -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-stone-800">1. manifest.json</span>
+          <button onclick="copyDeployCode('deployManifestCode', 'manifest.json')" class="px-2.5 py-1 rounded-lg bg-stone-900 text-white text-[11px] font-medium active:scale-95 transition">
+            复制 manifest.json
+          </button>
+        </div>
+        <textarea id="deployManifestCode" rows="5" readonly class="w-full bg-[#F7F6F2] border border-stone-200 rounded-xl p-2.5 text-[11px] font-mono text-stone-800 focus:outline-none"></textarea>
+      </div>
+
+      <!-- 文件 2：sw.js -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-stone-800">2. sw.js（Service Worker 离线缓存）</span>
+          <button onclick="copyDeployCode('deploySwCode', 'sw.js')" class="px-2.5 py-1 rounded-lg bg-stone-900 text-white text-[11px] font-medium active:scale-95 transition">
+            复制 sw.js
+          </button>
+        </div>
+        <textarea id="deploySwCode" rows="6" readonly class="w-full bg-[#F7F6F2] border border-stone-200 rounded-xl p-2.5 text-[11px] font-mono text-stone-800 focus:outline-none"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自定义轻量级 Toast 提示框（替代 alert/confirm） -->
+  <div id="toastBox" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-200">
+    <div id="toastMessage" class="bg-stone-900/90 text-white text-xs font-medium px-4 py-2 rounded-full shadow-lg backdrop-blur-xs">
+      操作成功
+    </div>
+  </div>
+
+  <!-- 自定义二次确认浮层 -->
+  <div id="confirmDialog" class="fixed inset-0 z-50 hidden bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-xs rounded-2xl p-5 shadow-xl space-y-4 text-center">
+      <h4 id="confirmTitle" class="text-base font-bold text-stone-900">确认清空账单？</h4>
+      <p id="confirmDesc" class="text-xs text-stone-500 leading-relaxed">清空后将保留您的初始余额设置，您可以立即开始记录自己的账目。</p>
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <button onclick="closeModal('confirmDialog')" class="py-2 rounded-xl bg-stone-100 text-stone-700 text-xs font-semibold">取消</button>
+        <button id="confirmActionBtn" class="py-2 rounded-xl bg-rose-600 text-white text-xs font-semibold">确认清空</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. 数据模型与预置截图数据（11.20 ~ 11.22 完整还原）
+    // =========================================================================
+    const STORAGE_KEY = 'dual_track_note_ledger_v1';
+
+    // 根据用户上传的手机便签截图还原的初始数据
+    const DEFAULT_SAMPLE_DATA = {
+      initialBalance: 1800,
+      isSample: true,
+      entries: [
+        // 11.20: （借yxy100） -> 仅自己账本扣100，家长账本剩1800，自己括号内剩1700
+        { id: 'e1', date: '11.20', title: '借yxy', amount: 100, type: 'private_expense' },
+        // 11.21: 车票36, 买了瓶水4.59, 打台球20.92 -> 公开合计 61.51，家长剩1738.49，自己剩1638.49
+        { id: 'e2', date: '11.21', title: '车票', amount: 36, type: 'public_expense' },
+        { id: 'e3', date: '11.21', title: '买了瓶水', amount: 4.59, type: 'public_expense' },
+        { id: 'e4', date: '11.21', title: '打台球', amount: 20.92, type: 'public_expense' },
+        // 11.22: （软云22.92）, 蒸饵丝10, 4杯咖啡买给家里人喝43.6, 买了两个球2, 买了瓶水5, 洗衣液35.1, 洗发水59
+        // 注：公开合计 = 10+43.6+2+5+35.1+59 = 154.7 (截图笔误写144.7但余额1738.49-144.7=1593.79，本系统严格按精确数学自动计算)
+        { id: 'e5', date: '11.22', title: '软云', amount: 22.92, type: 'private_expense' },
+        { id: 'e6', date: '11.22', title: '蒸饵丝', amount: 10, type: 'public_expense' },
+        { id: 'e7', date: '11.22', title: '4杯咖啡买给家里人喝', amount: 43.6, type: 'public_expense' },
+        { id: 'e8', date: '11.22', title: '买了两个球', amount: 2, type: 'public_expense' },
+        { id: 'e9', date: '11.22', title: '买了瓶水', amount: 5, type: 'public_expense' },
+        { id: 'e10', date: '11.22', title: '洗衣液', amount: 35.1, type: 'public_expense' },
+        { id: 'e11', date: '11.22', title: '洗发水', amount: 59, type: 'public_expense' }
+      ]
+    };
+
+    let state = {
+      initialBalance: 1800,
+      isSample: true,
+      entries: [],
+      viewMode: 'dual', // 'dual' (双轨便签) | 'parent' (家长纯享) | 'manage' (明细编辑)
+      selectedType: 'public_expense'
+    };
+
+    // 初始化读取本地存储
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          state.initialBalance = typeof parsed.initialBalance === 'number' ? parsed.initialBalance : 1800;
+          state.entries = Array.isArray(parsed.entries) ? parsed.entries : [];
+          state.isSample = Boolean(parsed.isSample);
+        } else {
+          state.initialBalance = DEFAULT_SAMPLE_DATA.initialBalance;
+          state.entries = JSON.parse(JSON.stringify(DEFAULT_SAMPLE_DATA.entries));
+          state.isSample = true;
+          saveState();
+        }
+      } catch (e) {
+        state.entries = JSON.parse(JSON.stringify(DEFAULT_SAMPLE_DATA.entries));
+      }
+
+      // 默认把底部输入框日期设为今天（M.D格式，例如 11.23）
+      const now = new Date();
+      const todayStr = `${now.getMonth() + 1}.${now.getDate()}`;
+      document.getElementById('inputDate').value = todayStr;
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          initialBalance: state.initialBalance,
+          isSample: state.isSample,
+          entries: state.entries
+        }));
+      } catch (e) {
+        console.error('保存失败', e);
+      }
+    }
+
+    // 格式化数字，去除多余的 .00，保留最多两位小数（与手机便签习惯一致，如 36、4.59、1738.49）
+    function fmtNum(num) {
+      const rounded = Math.round((num + Number.EPSILON) * 100) / 100;
+      return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2).replace(/\.?0+$/, '');
+    }
+
+    // =========================================================================
+    // 2. 核心双轨算账引擎（按日期顺序累计推演每日余额）
+    // =========================================================================
+    function computeDailyLedger() {
+      // 按日期分组（保持插入顺序或日期自然排序）
+      const dateGroupsMap = new Map();
+
+      state.entries.forEach(entry => {
+        if (!dateGroupsMap.has(entry.date)) {
+          dateGroupsMap.set(entry.date, []);
+        }
+        dateGroupsMap.get(entry.date).push(entry);
+      });
+
+      // 对日期键进行智能排序（如 11.20 -> 11.21 -> 11.22）
+      const sortedDates = Array.from(dateGroupsMap.keys()).sort((a, b) => {
+        const parseDateVal = (str) => {
+          const parts = str.split(/[.\/-]/).map(Number);
+          if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            return parts[0] * 100 + parts[1];
+          }
+          return 0;
+        };
+        return parseDateVal(a) - parseDateVal(b);
+      });
+
+      let runningParentBalance = state.initialBalance;
+      let runningPrivateBalance = state.initialBalance;
+      let totalParentSpent = 0;
+
+      const dailySummaries = sortedDates.map(date => {
+        const items = dateGroupsMap.get(date);
+        let dayPublicExpense = 0;
+        let dayPrivateExpense = 0;
+        let dayPublicIncome = 0;
+        let dayPrivateIncome = 0;
+
+        items.forEach(item => {
+          const amt = Number(item.amount) || 0;
+          if (item.type === 'public_expense') {
+            dayPublicExpense += amt;
+            runningParentBalance -= amt;
+            runningPrivateBalance -= amt;
+            totalParentSpent += amt;
+          } else if (item.type === 'private_expense') {
+            dayPrivateExpense += amt;
+            // 关键逻辑：私密支出只从个人真实余额中扣除，家长余额不受影响！
+            runningPrivateBalance -= amt;
+          } else if (item.type === 'public_income') {
+            dayPublicIncome += amt;
+            runningParentBalance += amt;
+            runningPrivateBalance += amt;
+          } else if (item.type === 'private_income') {
+            dayPrivateIncome += amt;
+            runningPrivateBalance += amt;
+          }
+        });
+
+        const dayTotalAllExpense = dayPublicExpense + dayPrivateExpense;
+
+        return {
+          date,
+          items,
+          dayPublicExpense,
+          dayPrivateExpense,
+          dayTotalAllExpense,
+          dayPublicIncome,
+          dayPrivateIncome,
+          endParentBalance: runningParentBalance,
+          endPrivateBalance: runningPrivateBalance
+        };
+      });
+
+      return {
+        dailySummaries,
+        finalParentBalance: runningParentBalance,
+        finalPrivateBalance: runningPrivateBalance,
+        totalParentSpent
+      };
+    }
+
+    // =========================================================================
+    // 3. 界面渲染与视图模式切换
+    // =========================================================================
+    function switchMode(mode) {
+      state.viewMode = mode;
+
+      // 更新顶部三个标签样式
+      ['dual', 'parent', 'manage'].forEach(m => {
+        const btn = document.getElementById(`tab-${m}`);
+        if (m === mode) {
+          btn.className = 'py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1 bg-white text-stone-900 shadow-xs font-semibold';
+        } else {
+          btn.className = 'py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1 text-stone-600 hover:text-stone-900';
+        }
+      });
+
+      const isParentMode = mode === 'parent';
+
+      // 家长纯享模式下，无缝伪装为普通单轨记账软件，隐藏所有双轨提示
+      document.getElementById('appTitle').textContent = isParentMode ? '日常支出便签' : '日常记账便签';
+      document.getElementById('appSubtitle').textContent = isParentMode ? '生活费收支明细记录' : '双轨同步 · 括号内为个人账本';
+      document.getElementById('appLogo').className = isParentMode
+        ? 'w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-sm transition-colors'
+        : 'w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-sm transition-colors';
+
+      document.getElementById('privateBalanceCard').classList.toggle('hidden', isParentMode);
+      document.getElementById('parentModeBanner').classList.toggle('hidden', !isParentMode);
+      document.getElementById('installAppBtn').classList.toggle('hidden', isParentMode);
+
+      // 家长模式下隐藏示例数据提示横幅和底部私密按钮，防止当面展示时穿帮
+      const sampleBanner = document.getElementById('sampleDataBanner');
+      if (state.isSample && !isParentMode) {
+        sampleBanner.classList.remove('hidden');
+      } else {
+        sampleBanner.classList.add('hidden');
+      }
+
+      document.getElementById('btn-private_expense').classList.toggle('hidden', isParentMode);
+      document.getElementById('btn-private_income').classList.toggle('hidden', isParentMode);
+
+      if (isParentMode && state.selectedType.startsWith('private')) {
+        setEntryType('public_expense');
+      }
+
+      renderAll();
+    }
+
+    function renderAll() {
+      const { dailySummaries, finalParentBalance, finalPrivateBalance, totalParentSpent } = computeDailyLedger();
+
+      // 更新顶部余额面板
+      document.getElementById('displayInitialBalance').textContent = fmtNum(state.initialBalance);
+      document.getElementById('parentCurrentBalance').textContent = fmtNum(finalParentBalance);
+      document.getElementById('parentTotalSpent').textContent = fmtNum(totalParentSpent);
+      document.getElementById('privateCurrentBalance').textContent = fmtNum(finalPrivateBalance);
+
+      const diff = finalPrivateBalance - finalParentBalance;
+      document.getElementById('privateDiffAmount').textContent = (diff >= 0 ? '+' : '') + fmtNum(diff);
+
+      // 控制示例横幅
+      const sampleBanner = document.getElementById('sampleDataBanner');
+      if (state.isSample && state.viewMode !== 'parent') {
+        sampleBanner.classList.remove('hidden');
+      } else {
+        sampleBanner.classList.add('hidden');
+      }
+
+      const container = document.getElementById('ledgerContainer');
+      container.innerHTML = '';
+
+      if (dailySummaries.length === 0) {
+        container.innerHTML = `
+          <div class="note-paper rounded-2xl p-8 text-center border border-stone-100">
+            <div class="w-12 h-12 rounded-full bg-stone-100 text-stone-400 flex items-center justify-center mx-auto mb-3 text-xl">✎</div>
+            <p class="text-sm font-medium text-stone-700">账本还是空的</p>
+            <p class="text-xs text-stone-400 mt-1">在下方输入框输入如“午饭 15”或“(奶茶 18)”即可记账</p>
+          </div>
+        `;
+        return;
+      }
+
+      // 根据当前视图渲染
+      if (state.viewMode === 'manage') {
+        renderManageView(container, dailySummaries);
+      } else {
+        renderNoteView(container, dailySummaries, state.viewMode === 'parent');
+      }
+    }
+
+    // 渲染“便签视图”（支持双轨完整版 & 家长纯享版）
+    function renderNoteView(container, dailySummaries, isParentOnly) {
+      // 整张连续便签纸效果（高度还原截图中的手机备忘录视觉）
+      const paper = document.createElement('div');
+      paper.className = 'note-paper rounded-2xl p-5 sm:p-6 border border-stone-100 space-y-6 text-[15px] leading-relaxed';
+
+      dailySummaries.forEach((day, idx) => {
+        // 如果是家长纯享模式，过滤掉所有私密条目
+        const visibleItems = isParentOnly
+          ? day.items.filter(i => i.type.startsWith('public'))
+          : day.items;
+
+        // 如果某天在家长模式下没有任何公开记录（例如11.20只有私密借款），家长模式下不显示该天冗余空行，或者仅在有公开记录时展示
+        if (isParentOnly && visibleItems.length === 0) {
+          return;
+        }
+
+        const dayBlock = document.createElement('div');
+        dayBlock.className = idx > 0 ? 'pt-4 border-t border-dashed border-stone-200/80' : '';
+
+        // 1. 日期标题行（如 11.21）
+        let html = `
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-bold text-stone-900 tracking-wide">${escapeHtml(day.date)}</span>
+            ${!isParentOnly ? `<button onclick="fillDateToInput('${escapeHtml(day.date)}')" class="text-[11px] text-stone-400 hover:text-amber-600 px-1.5 py-0.5 rounded hover:bg-amber-50 transition">+ 补记这天</button>` : ''}
+          </div>
+          <div class="space-y-1 text-stone-800">
+        `;
+
+        // 2. 逐条消费/入账记录行（完全模仿便签一行一条）
+        visibleItems.forEach(item => {
+          const isPrivate = item.type.startsWith('private');
+          const isIncome = item.type.endsWith('income');
+          const signPrefix = isIncome ? '+' : '';
+          const amountStr = `${signPrefix}${fmtNum(item.amount)}`;
+
+          if (isPrivate) {
+            // 双轨模式下的私密条目：带括号 + 柔和琥珀色胶囊底纹，点击可编辑
+            html += `
+              <div onclick="openEditModal('${item.id}')" class="group flex items-center justify-between py-0.5 px-1.5 -mx-1.5 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 text-amber-900 cursor-pointer transition">
+                <span>（${escapeHtml(item.title)}<span class="font-medium tabular-nums ml-0.5">${amountStr}</span>）</span>
+                <span class="text-[10px] text-amber-600/70 opacity-0 group-hover:opacity-100 transition">编辑</span>
+              </div>
+            `;
+          } else {
+            // 公开条目：普通便签墨水字，双轨模式下点击也可快速编辑
+            const clickAttr = !isParentOnly ? `onclick="openEditModal('${item.id}')" class="group flex items-center justify-between py-0.5 px-1.5 -mx-1.5 rounded-lg hover:bg-stone-100/80 cursor-pointer transition"` : `class="flex items-center justify-between py-0.5"`;
+            html += `
+              <div ${clickAttr}>
+                <span>${escapeHtml(item.title)}<span class="font-medium tabular-nums ml-0.5 ${isIncome ? 'text-emerald-600' : ''}">${amountStr}</span></span>
+                ${!isParentOnly ? `<span class="text-[10px] text-stone-400 opacity-0 group-hover:opacity-100 transition">编辑</span>` : ''}
+              </div>
+            `;
+          }
+        });
+
+        html += `</div>`;
+
+        // 3. 每日“合计”与“剩”汇总行（精准还原截图格式）
+        html += `<div class="mt-2 pt-1.5 space-y-0.5 font-medium text-stone-900">`;
+
+        // 合计行
+        if (day.dayPublicExpense > 0 || day.dayPrivateExpense > 0) {
+          if (isParentOnly) {
+            html += `<div>合计 <span class="tabular-nums">${fmtNum(day.dayPublicExpense)}</span></div>`;
+          } else {
+            // 如果当天有私密支出，显示：合计 公开金额（总支出金额）
+            const hasDiffExpense = day.dayPrivateExpense > 0;
+            html += `
+              <div>
+                合计 <span class="tabular-nums">${fmtNum(day.dayPublicExpense)}</span>
+                ${hasDiffExpense ? `<span class="text-amber-800 tabular-nums">（${fmtNum(day.dayTotalAllExpense)}）</span>` : ''}
+              </div>
+            `;
+          }
+        }
+
+        // 入账提示（如果当天有额外入账）
+        if (day.dayPublicIncome > 0 || (!isParentOnly && day.dayPrivateIncome > 0)) {
+          if (isParentOnly && day.dayPublicIncome > 0) {
+            html += `<div class="text-emerald-700 text-xs">入账 +${fmtNum(day.dayPublicIncome)}</div>`;
+          } else if (!isParentOnly) {
+            const totalInc = day.dayPublicIncome + day.dayPrivateIncome;
+            html += `<div class="text-emerald-700 text-xs">入账 +${fmtNum(day.dayPublicIncome)}${day.dayPrivateIncome > 0 ? `（+${fmtNum(totalInc)}）` : ''}</div>`;
+          }
+        }
+
+        // 剩余余额行：剩 1738.49（1638.49）
+        if (isParentOnly) {
+          html += `<div>剩 <span class="tabular-nums font-bold">${fmtNum(day.endParentBalance)}</span></div>`;
+        } else {
+          const showPrivateBracket = day.endPrivateBalance !== day.endParentBalance;
+          html += `
+            <div>
+              剩 <span class="tabular-nums font-bold">${fmtNum(day.endParentBalance)}</span>
+              ${showPrivateBracket ? `<span class="text-amber-800 font-bold tabular-nums">（${fmtNum(day.endPrivateBalance)}）</span>` : ''}
+            </div>
+          `;
+        }
+
+        html += `</div>`;
+        dayBlock.innerHTML = html;
+        paper.appendChild(dayBlock);
+      });
+
+      container.appendChild(paper);
+    }
+
+    // 渲染“明细编辑模式”（卡片列表，方便一键切换公开/私密或删除）
+    function renderManageView(container, dailySummaries) {
+      // 倒序展示最近日期在最前，方便管理
+      const reversed = [...dailySummaries].reverse();
+
+      reversed.forEach(day => {
+        const card = document.createElement('div');
+        card.className = 'note-paper rounded-2xl p-4 border border-stone-100 space-y-2.5';
+
+        let itemsHtml = day.items.map(item => {
+          const isPrivate = item.type.startsWith('private');
+          const isIncome = item.type.endsWith('income');
+          return `
+            <div class="flex items-center justify-between py-2 border-b border-stone-100 last:border-0 gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <button onclick="togglePrivacyQuick('${item.id}')" title="点击切换公开/私密" class="shrink-0 px-2 py-0.5 rounded-md text-[11px] font-medium transition ${isPrivate ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}">
+                  ${isPrivate ? '（私密）' : '公开'}
+                </button>
+                <span class="text-sm text-stone-800 truncate">${escapeHtml(item.title)}</span>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="text-sm font-bold tabular-nums ${isIncome ? 'text-emerald-600' : (isPrivate ? 'text-amber-800' : 'text-stone-900')}">
+                  ${isIncome ? '+' : '-'}${fmtNum(item.amount)}
+                </span>
+                <button onclick="openEditModal('${item.id}')" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between pb-1 border-b border-stone-100">
+            <span class="text-xs font-bold text-stone-800">${escapeHtml(day.date)}</span>
+            <span class="text-[11px] text-stone-400 tabular-nums">
+              日结剩: ${fmtNum(day.endParentBalance)}（${fmtNum(day.endPrivateBalance)}）
+            </span>
+          </div>
+          <div>${itemsHtml}</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // =========================================================================
+    // 4. 极速自然语言解析与记账交互
+    // =========================================================================
+    function setEntryType(type) {
+      state.selectedType = type;
+      const types = ['public_expense', 'private_expense', 'public_income', 'private_income'];
+
+      types.forEach(t => {
+        const btn = document.getElementById(`btn-${t}`);
+        if (t === type) {
+          if (t.startsWith('private')) {
+            btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold transition border bg-amber-500 text-white border-amber-500 shadow-2xs';
+          } else if (t.endsWith('income')) {
+            btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold transition border bg-emerald-600 text-white border-emerald-600 shadow-2xs';
+          } else {
+            btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold transition border bg-stone-800 text-white border-stone-800 shadow-2xs';
+          }
+        } else {
+          if (t === 'private_expense') {
+            btn.className = 'px-2.5 py-1 rounded-lg text-xs font-medium transition border bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100';
+          } else {
+            btn.className = 'px-2.5 py-1 rounded-lg text-xs font-medium transition border bg-stone-100 text-stone-600 border-transparent hover:bg-stone-200';
+          }
+        }
+      });
+
+      updateLiveHintBadge();
+    }
+
+    // 实时检测输入内容是否带有中英文括号
+    function detectBracketsLive(val) {
+      const trimmed = val.trim();
+      if (!trimmed) return;
+      const hasBrackets = /^[（(].*[）)]$/.test(trimmed) || trimmed.startsWith('（') || trimmed.startsWith('(');
+
+      if (hasBrackets && state.viewMode !== 'parent') {
+        if (state.selectedType === 'public_expense') setEntryType('private_expense');
+        if (state.selectedType === 'public_income') setEntryType('private_income');
+      }
+      updateLiveHintBadge();
+    }
+
+    function updateLiveHintBadge() {
+      const hint = document.getElementById('liveParseHint');
+      const map = {
+        public_expense: { text: '公开支出', cls: 'bg-stone-200/80 text-stone-700' },
+        private_expense: { text: '括号私密', cls: 'bg-amber-100 text-amber-800' },
+        public_income: { text: '公开入账', cls: 'bg-emerald-100 text-emerald-800' },
+        private_income: { text: '私密入账', cls: 'bg-amber-100 text-amber-800' }
+      };
+      const cur = map[state.selectedType];
+      hint.textContent = cur.text;
+      hint.className = `absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium px-1.5 py-0.5 rounded pointer-events-none ${cur.cls}`;
+    }
+
+    function handleQuickAdd(e) {
+      e.preventDefault();
+      const inputEl = document.getElementById('quickInputText');
+      const dateEl = document.getElementById('inputDate');
+      let rawText = inputEl.value.trim();
+      const dateStr = dateEl.value.trim() || '11.23';
+
+      if (!rawText) {
+        showToast('请输入消费名称和金额，如：车票 36');
+        return;
+      }
+
+      // 检测是否由括号包裹（识别为私密账目）
+      let entryType = state.selectedType;
+      if (/^[（(].*[）)]$/.test(rawText) || rawText.startsWith('（') || rawText.startsWith('(')) {
+        rawText = rawText.replace(/^[（(]+|[）)]+$/g, '').trim();
+        if (state.viewMode !== 'parent') {
+          entryType = entryType.endsWith('income') ? 'private_income' : 'private_expense';
+        }
+      }
+
+      // 从文本末尾或中间提取金额数字（支持如 "买了瓶水4.59"、"车票 36"、"4杯咖啡43.6"）
+      const match = rawText.match(/^(.*?)([+-]?\d+(?:\.\d+)?)\s*元?$/);
+      if (!match) {
+        showToast('未识别到金额数字，请按“项目 金额”格式输入');
+        return;
+      }
+
+      const title = match[1].trim() || '日常消费';
+      const amount = Math.abs(parseFloat(match[2]));
+
+      if (isNaN(amount) || amount <= 0) {
+        showToast('请输入大于 0 的有效金额');
+        return;
+      }
+
+      state.entries.push({
+        id: 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        date: dateStr,
+        title,
+        amount,
+        type: entryType
+      });
+
+      saveState();
+      renderAll();
+
+      inputEl.value = '';
+      // 记完一笔后默认恢复为常用的公开支出（除非在纯公开模式）
+      if (state.viewMode !== 'parent') {
+        setEntryType('public_expense');
+      }
+      showToast(entryType.startsWith('private') ? `已记入括号私密账：(${title}${fmtNum(amount)})` : `已记录：${title}${fmtNum(amount)}`);
+    }
+
+    function fillDateToInput(dateStr) {
+      const dateEl = document.getElementById('inputDate');
+      const inputEl = document.getElementById('quickInputText');
+      dateEl.value = dateStr;
+      inputEl.focus();
+      showToast(`已切换记账日期为 ${dateStr}`);
+    }
+
+    // =========================================================================
+    // 5. 条目编辑、快速切换公开/私密、设置与复制导出
+    // =========================================================================
+    function togglePrivacyQuick(id) {
+      const item = state.entries.find(e => e.id === id);
+      if (!item) return;
+      const map = {
+        public_expense: 'private_expense',
+        private_expense: 'public_expense',
+        public_income: 'private_income',
+        private_income: 'public_income'
+      };
+      item.type = map[item.type] || 'public_expense';
+      saveState();
+      renderAll();
+      showToast(item.type.startsWith('private') ? '已转为（私密）仅自己可见' : '已转为公开条目');
+    }
+
+    function openEditModal(id) {
+      const item = state.entries.find(e => e.id === id);
+      if (!item) return;
+      document.getElementById('editEntryId').value = item.id;
+      document.getElementById('editEntryDate').value = item.date;
+      document.getElementById('editEntryTitle').value = item.title;
+      document.getElementById('editEntryAmount').value = item.amount;
+      document.getElementById('editEntryType').value = item.type;
+      document.getElementById('editEntryModal').classList.remove('hidden');
+    }
+
+    function saveEditedEntry() {
+      const id = document.getElementById('editEntryId').value;
+      const item = state.entries.find(e => e.id === id);
+      if (!item) return;
+
+      const newDate = document.getElementById('editEntryDate').value.trim();
+      const newTitle = document.getElementById('editEntryTitle').value.trim();
+      const newAmount = parseFloat(document.getElementById('editEntryAmount').value);
+      const newType = document.getElementById('editEntryType').value;
+
+      if (!newDate || !newTitle || isNaN(newAmount) || newAmount <= 0) {
+        showToast('请填写完整的日期、内容与有效金额');
+        return;
+      }
+
+      item.date = newDate;
+      item.title = newTitle;
+      item.amount = newAmount;
+      item.type = newType;
+
+      saveState();
+      renderAll();
+      closeModal('editEntryModal');
+      showToast('修改已保存并重新核算余额');
+    }
+
+    function deleteCurrentEditingEntry() {
+      const id = document.getElementById('editEntryId').value;
+      state.entries = state.entries.filter(e => e.id !== id);
+      saveState();
+      renderAll();
+      closeModal('editEntryModal');
+      showToast('已删除该条记录');
+    }
+
+    // 一键复制便签纯文本
+    function openCopyModal() {
+      // 如果当前处于家长模式，默认预览“仅家长版”
+      updateCopyPreview(state.viewMode === 'parent' ? 'parent' : 'parent');
+      document.getElementById('copyModal').classList.remove('hidden');
+    }
+
+    function updateCopyPreview(version) {
+      const btnParent = document.getElementById('copyVerParent');
+      const btnDual = document.getElementById('copyVerDual');
+
+      if (version === 'parent') {
+        btnParent.className = 'py-2 rounded-lg bg-white text-stone-900 shadow-2xs font-semibold transition';
+        btnDual.className = 'py-2 rounded-lg text-stone-600 hover:text-stone-900 transition';
+      } else {
+        btnDual.className = 'py-2 rounded-lg bg-white text-stone-900 shadow-2xs font-semibold transition';
+        btnParent.className = 'py-2 rounded-lg text-stone-600 hover:text-stone-900 transition';
+      }
+
+      const { dailySummaries } = computeDailyLedger();
+      const isParentOnly = version === 'parent';
+      const lines = [];
+
+      dailySummaries.forEach(day => {
+        const items = isParentOnly ? day.items.filter(i => i.type.startsWith('public')) : day.items;
+        if (isParentOnly && items.length === 0) return;
+
+        lines.push(day.date);
+        items.forEach(item => {
+          const isPrivate = item.type.startsWith('private');
+          const prefix = item.type.endsWith('income') ? '+' : '';
+          if (isPrivate) {
+            lines.push(`（${item.title}${prefix}${fmtNum(item.amount)}）`);
+          } else {
+            lines.push(`${item.title}${prefix}${fmtNum(item.amount)}`);
+          }
+        });
+
+        if (day.dayPublicExpense > 0 || (!isParentOnly && day.dayPrivateExpense > 0)) {
+          if (isParentOnly || day.dayPrivateExpense === 0) {
+            lines.push(`合计${fmtNum(day.dayPublicExpense)}`);
+          } else {
+            lines.push(`合计${fmtNum(day.dayPublicExpense)}（${fmtNum(day.dayTotalAllExpense)}）`);
+          }
+        }
+
+        if (isParentOnly || day.endPrivateBalance === day.endParentBalance) {
+          lines.push(`剩${fmtNum(day.endParentBalance)}`);
+        } else {
+          lines.push(`剩${fmtNum(day.endParentBalance)}（${fmtNum(day.endPrivateBalance)}）`);
+        }
+      });
+
+      document.getElementById('copyPreviewArea').value = lines.join('\n');
+    }
+
+    function executeCopyText() {
+      const textarea = document.getElementById('copyPreviewArea');
+      textarea.select();
+      textarea.setSelectionRange(0, 99999);
+      try {
+        document.execCommand('copy');
+        closeModal('copyModal');
+        showToast('已复制便签文本，可直接粘贴发送！');
+      } catch (err) {
+        showToast('复制失败，请手动长按文本框全选复制');
+      }
+    }
+
+    // 初始余额与数据管理弹窗
+    function openSettingsModal() {
+      document.getElementById('initialBalanceInput').value = state.initialBalance;
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+
+    function saveInitialBalance() {
+      const val = parseFloat(document.getElementById('initialBalanceInput').value);
+      if (isNaN(val) || val < 0) {
+        showToast('请输入有效的初始金额');
+        return;
+      }
+      state.initialBalance = val;
+      saveState();
+      renderAll();
+      closeModal('settingsModal');
+      showToast(`初始余额已更新为 ${fmtNum(val)} 元`);
+    }
+
+    function confirmClearAll(fromSampleBanner) {
+      closeModal('settingsModal');
+      document.getElementById('confirmTitle').textContent = fromSampleBanner ? '清空示例数据？' : '清空全部账单？';
+      document.getElementById('confirmDesc').textContent = '清空后将移除所有历史记录，并保留当前初始余额，方便您立即开始记账。';
+      const actionBtn = document.getElementById('confirmActionBtn');
+      actionBtn.onclick = () => {
+        state.entries = [];
+        state.isSample = false;
+        saveState();
+        renderAll();
+        closeModal('confirmDialog');
+        showToast('账单已清空，开始记录您的第一笔吧');
+      };
+      document.getElementById('confirmDialog').classList.remove('hidden');
+    }
+
+    function restoreSampleData() {
+      state.initialBalance = DEFAULT_SAMPLE_DATA.initialBalance;
+      state.entries = JSON.parse(JSON.stringify(DEFAULT_SAMPLE_DATA.entries));
+      state.isSample = true;
+      saveState();
+      renderAll();
+      closeModal('settingsModal');
+      showToast('已恢复 11.20~11.22 示例账单');
+    }
+
+    function exportJSON() {
+      const dataStr = JSON.stringify({
+        initialBalance: state.initialBalance,
+        entries: state.entries,
+        exportedAt: new Date().toISOString()
+      }, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `双轨记账本备份_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('已下载 JSON 备份文件');
+    }
+
+    function importJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (Array.isArray(parsed.entries)) {
+            state.initialBalance = Number(parsed.initialBalance) || 1800;
+            state.entries = parsed.entries;
+            state.isSample = false;
+            saveState();
+            renderAll();
+            closeModal('settingsModal');
+            showToast('数据恢复成功！');
+          } else {
+            showToast('无效的备份文件格式');
+          }
+        } catch (err) {
+          showToast('文件解析失败');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const box = document.getElementById('toastBox');
+      document.getElementById('toastMessage').textContent = msg;
+      box.classList.remove('opacity-0', '-translate-y-2');
+      box.classList.add('opacity-100', 'translate-y-0');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        box.classList.add('opacity-0', '-translate-y-2');
+        box.classList.remove('opacity-100', 'translate-y-0');
+      }, 2200);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // =========================================================================
+    // 6. PWA 独立应用支持（动态图标、Manifest 注入、Service Worker 与安装引导）
+    // =========================================================================
+    let deferredInstallPrompt = null;
+    let generatedIconDataUrl = '';
+
+    // 生成高清 512x512 应用图标（Canvas 渲染圆角暖琥珀渐变便签图标）
+    function createAppIconDataUrl() {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // 圆角背景
+        const radius = 112;
+        ctx.beginPath();
+        ctx.moveTo(radius, 0);
+        ctx.lineTo(512 - radius, 0);
+        ctx.quadraticCurveTo(512, 0, 512, radius);
+        ctx.lineTo(512, 512 - radius);
+        ctx.quadraticCurveTo(512, 512, 512 - radius, 512);
+        ctx.lineTo(radius, 512);
+        ctx.quadraticCurveTo(0, 512, 0, 512 - radius);
+        ctx.lineTo(0, radius);
+        ctx.quadraticCurveTo(0, 0, radius, 0);
+        ctx.closePath();
+
+        const grad = ctx.createLinearGradient(0, 0, 512, 512);
+        grad.addColorStop(0, '#F59E0B');
+        grad.addColorStop(1, '#D97706');
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // 内部白色便签卡片
+        ctx.fillStyle = '#FFFDF9';
+        ctx.beginPath();
+        ctx.roundRect(96, 88, 320, 336, 44);
+        ctx.fill();
+
+        // 顶部装订装饰条
+        ctx.fillStyle = '#FDE68A';
+        ctx.beginPath();
+        ctx.roundRect(144, 126, 224, 18, 9);
+        ctx.fill();
+
+        // 中心“记”字标识
+        ctx.fillStyle = '#292524';
+        ctx.font = 'bold 168px "Noto Sans SC", "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('记', 256, 286);
+
+        return canvas.toDataURL('image/png');
+      } catch (e) {
+        // 降级为内联 SVG Data URL
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#F59E0B"/><rect x="96" y="88" width="320" height="336" rx="44" fill="#FFFDF9"/><text x="256" y="310" font-size="168" font-weight="bold" text-anchor="middle" fill="#292524" font-family="sans-serif">记</text></svg>`;
+        return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      }
+    }
+
+    // 动态注入 Web App Manifest 与 Apple Touch Icon
+    function initPwaManifestAndIcons() {
+      generatedIconDataUrl = createAppIconDataUrl();
+
+      const appleIconEl = document.getElementById('appleTouchIcon');
+      if (appleIconEl) appleIconEl.href = generatedIconDataUrl;
+
+      const previewIconEl = document.getElementById('installPreviewIcon');
+      if (previewIconEl) previewIconEl.src = generatedIconDataUrl;
+
+      const manifestObj = {
+        name: '随手便签账本 · 双轨版',
+        short_name: '便签账本',
+        description: '极简双轨生活费记账便签，支持离线使用与家长纯享视图',
+        start_url: './',
+        scope: './',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: '#F7F6F2',
+        theme_color: '#F7F6F2',
+        icons: [
+          {
+            src: generatedIconDataUrl,
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
+      };
+
+      try {
+        const blob = new Blob([JSON.stringify(manifestObj)], { type: 'application/manifest+json' });
+        const manifestUrl = URL.createObjectURL(blob);
+        const linkEl = document.getElementById('pwaManifestLink');
+        if (linkEl) linkEl.href = manifestUrl;
+      } catch (e) {
+        console.warn('Manifest Blob 注入跳过:', e);
+      }
+    }
+
+    // 注册 Service Worker（优先尝试同源实体 ./sw.js，失败则降级为 Blob SW 或本地缓存）
+    async function initServiceWorker() {
+      const statusTextEl = document.getElementById('offlineStatusText');
+      const statusDotEl = document.getElementById('offlineStatusDot');
+      const swDetailEl = document.getElementById('pwaSwStatusText');
+
+      // 检测是否已以独立 App (standalone) 方式打开
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      const modeTextEl = document.getElementById('pwaDisplayModeText');
+      if (modeTextEl) {
+        modeTextEl.textContent = isStandalone ? '独立 App 全屏模式 (已安装)' : '浏览器网页模式';
+      }
+      if (isStandalone) {
+        const btnLabel = document.getElementById('installBtnLabel');
+        if (btnLabel) btnLabel.textContent = '已安装';
+      }
+
+      if (!('serviceWorker' in navigator)) {
+        if (swDetailEl) swDetailEl.textContent = '当前环境不支持 SW，数据已本地保存';
+        return;
+      }
+
+      // 1. 优先尝试注册同源目录的实体 sw.js（适用于已托管到 HTTPS 网站的情况）
+      try {
+        const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+        if (reg) {
+          if (statusTextEl) statusTextEl.textContent = '离线就绪';
+          if (statusDotEl) statusDotEl.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+          if (swDetailEl) swDetailEl.textContent = '已激活实体 Service Worker (断网可用)';
+          return;
+        }
+      } catch (err) {
+        // 单文件预览/本地打开时没有外部 sw.js，自动执行内联降级
+      }
+
+      // 2. 单文件环境降级：提示用户本地存储已就绪，并提供部署引导
+      if (statusTextEl) statusTextEl.textContent = navigator.onLine ? '本地就绪' : '离线模式';
+      if (swDetailEl) {
+        swDetailEl.textContent = '单文件内置缓存（部署为网页后支持永久离线）';
+        swDetailEl.className = 'font-semibold text-amber-700';
+      }
+    }
+
+    // 监听浏览器原生安装事件 (Android Chrome / Edge / 桌面端 Chrome)
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      const nativeSec = document.getElementById('nativeInstallSection');
+      if (nativeSec) nativeSec.classList.remove('hidden');
+      const btnLabel = document.getElementById('installBtnLabel');
+      if (btnLabel) btnLabel.textContent = '安装App';
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      const nativeSec = document.getElementById('nativeInstallSection');
+      if (nativeSec) nativeSec.classList.add('hidden');
+      showToast('已成功安装到手机主屏幕！');
+    });
+
+    // 监听在线/离线网络切换，实时更新状态微章
+    function updateNetworkBadge() {
+      const statusTextEl = document.getElementById('offlineStatusText');
+      const statusDotEl = document.getElementById('offlineStatusDot');
+      if (!statusTextEl || !statusDotEl) return;
+
+      if (navigator.onLine) {
+        statusTextEl.textContent = '离线就绪';
+        statusDotEl.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+      } else {
+        statusTextEl.textContent = '已断网·离线记账';
+        statusDotEl.className = 'w-1.5 h-1.5 rounded-full bg-amber-500';
+      }
+    }
+
+    window.addEventListener('online', () => {
+      updateNetworkBadge();
+      showToast('网络已恢复');
+    });
+    window.addEventListener('offline', () => {
+      updateNetworkBadge();
+      showToast('当前处于离线状态，记账数据仍会安全保存在本地');
+    });
+
+    function openInstallModal() {
+      document.getElementById('installModal').classList.remove('hidden');
+    }
+
+    async function triggerNativeInstall() {
+      if (!deferredInstallPrompt) {
+        showToast('请按下方步骤通过浏览器菜单“添加到主屏幕”');
+        return;
+      }
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        closeModal('installModal');
+      }
+      deferredInstallPrompt = null;
+    }
+
+    // 打开部署包代码弹窗并填充标准 manifest.json 与 sw.js 代码
+    function openDeployModal() {
+      const manifestTemplate = {
+        name: "随手便签账本 · 双轨版",
+        short_name: "便签账本",
+        start_url: "./index.html",
+        display: "standalone",
+        background_color: "#F7F6F2",
+        theme_color: "#F7F6F2",
+        icons: [
+          {
+            src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%23F59E0B'/%3E%3Crect x='96' y='88' width='320' height='336' rx='44' fill='%23FFFDF9'/%3E%3Ctext x='256' y='310' font-size='168' font-weight='bold' text-anchor='middle' fill='%23292524' font-family='sans-serif'%3E%E8%AE%B0%3C/text%3E%3C/svg%3E",
+            sizes: "512x512",
+            type: "image/svg+xml",
+            purpose: "any maskable"
+          }
+        ]
+      };
+
+      const swTemplate = `const CACHE_NAME = 'dual-ledger-pwa-v1';
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.json',
+  'https://cdn.tailwindcss.com'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      return cached || fetch(event.request).then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
+      }).catch(() => cached);
+    })
+  );
+});`;
+
+      document.getElementById('deployManifestCode').value = JSON.stringify(manifestTemplate, null, 2);
+      document.getElementById('deploySwCode').value = swTemplate;
+      document.getElementById('deployModal').classList.remove('hidden');
+    }
+
+    function copyDeployCode(textareaId, fileName) {
+      const textarea = document.getElementById(textareaId);
+      textarea.select();
+      textarea.setSelectionRange(0, 99999);
+      try {
+        document.execCommand('copy');
+        showToast(`已复制 ${fileName} 代码！`);
+      } catch (err) {
+        showToast('复制失败，请手动全选复制');
+      }
+    }
+
+    // 启动应用
+    window.addEventListener('DOMContentLoaded', () => {
+      initPwaManifestAndIcons();
+      initServiceWorker();
+      updateNetworkBadge();
+      loadState();
+      switchMode('dual');
+    });
+  </script>
+</body>
+</html>
+```
